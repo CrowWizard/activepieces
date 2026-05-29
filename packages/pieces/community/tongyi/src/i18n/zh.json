@@ -1,0 +1,20 @@
+{
+  "API key": "API key",
+  "DashScope API key from Alibaba Cloud": "阿里云 DashScope API 密钥",
+  "Generate Background": "生成背景",
+  "Generate a product image with AI background using a transparent PNG and a text prompt": "使用透明 PNG 和文本提示词生成带 AI 背景的商品图",
+  "Image file": "图片文件",
+  "Transparent PNG image of the product": "商品的透明 PNG 图片",
+  "Background prompt": "背景提示词",
+  "Description of the desired background scene": "期望背景场景的描述",
+  "Output filename": "输出文件名",
+  "Filename for the generated image (without extension)": "生成图片的文件名（不含扩展名）",
+  "Image Pro Edit": "图像精修",
+  "Edit an image using AI inpainting with a mask and prompt, or enhance image details": "使用 AI 局部重绘（mask + prompt）编辑图片，或增强图像细节",
+  "Source image to edit": "待编辑的源图片",
+  "Edit prompt": "编辑提示词",
+  "Description of the desired edit or enhancement": "期望编辑或增强效果的描述",
+  "Mask file": "遮罩文件",
+  "Black-and-white mask image (white = area to repaint). Optional — if omitted, full-image edit is performed": "黑白遮罩图（白色=重绘区域）。可选，省略则进行全图编辑",
+  "Filename for the edited image (without extension)": "编辑后图片的文件名（不含扩展名）"
+}

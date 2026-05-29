@@ -1,0 +1,20 @@
+{
+  "API key": "API key",
+  "DashScope API key from Alibaba Cloud": "DashScope API key from Alibaba Cloud",
+  "Generate Background": "Generate Background",
+  "Generate a product image with AI background using a transparent PNG and a text prompt": "Generate a product image with AI background using a transparent PNG and a text prompt",
+  "Image file": "Image file",
+  "Transparent PNG image of the product": "Transparent PNG image of the product",
+  "Background prompt": "Background prompt",
+  "Description of the desired background scene": "Description of the desired background scene",
+  "Output filename": "Output filename",
+  "Filename for the generated image (without extension)": "Filename for the generated image (without extension)",
+  "Image Pro Edit": "Image Pro Edit",
+  "Edit an image using AI inpainting with a mask and prompt, or enhance image details": "Edit an image using AI inpainting with a mask and prompt, or enhance image details",
+  "Source image to edit": "Source image to edit",
+  "Edit prompt": "Edit prompt",
+  "Description of the desired edit or enhancement": "Description of the desired edit or enhancement",
+  "Mask file": "Mask file",
+  "Black-and-white mask image (white = area to repaint). Optional — if omitted, full-image edit is performed": "Black-and-white mask image (white = area to repaint). Optional — if omitted, full-image edit is performed",
+  "Filename for the edited image (without extension)": "Filename for the edited image (without extension)"
+}
