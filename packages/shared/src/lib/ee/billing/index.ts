@@ -100,6 +100,7 @@ export const STANDARD_CLOUD_PLAN: PlatformPlanWithOnlyLimits = {
     dedicatedWorkers: null,
     canary: false,
     customDomainsEnabled: false,
+    stepLevelSchedulingEnabled: false,
 }
 
 export const OPEN_SOURCE_PLAN: PlatformPlanWithOnlyLimits = {
@@ -132,6 +133,7 @@ export const OPEN_SOURCE_PLAN: PlatformPlanWithOnlyLimits = {
     dedicatedWorkers: null,
     canary: false,
     customDomainsEnabled: false,
+    stepLevelSchedulingEnabled: false,
 }
 
 export const APPSUMO_PLAN = (planName: PlanName): PlatformPlanWithOnlyLimits => ({

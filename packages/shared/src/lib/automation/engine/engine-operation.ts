@@ -4,6 +4,7 @@ import { ProjectId } from '../../management/project/project'
 import { ExecutionToolStatus, PredefinedInputsStructure } from '../agents'
 import { AppConnectionValue } from '../app-connection/app-connection'
 import { ExecutionType } from '../flow-run/execution/execution-output'
+import { StepOutput } from '../flow-run/execution/step-output'
 import { FlowRunId, RunEnvironment } from '../flow-run/flow-run'
 import { FlowVersion } from '../flows/flow-version'
 import { PiecePackage } from '../pieces'
@@ -16,6 +17,7 @@ export enum EngineOperationType {
     EXECUTE_PROPERTY = 'EXECUTE_PROPERTY',
     EXECUTE_TRIGGER_HOOK = 'EXECUTE_TRIGGER_HOOK',
     EXECUTE_VALIDATE_AUTH = 'EXECUTE_VALIDATE_AUTH',
+    EXECUTE_STEP = 'EXECUTE_STEP',
 }
 
 export enum TriggerHookType {
@@ -34,6 +36,7 @@ export type EngineOperation =
     | ExecuteTriggerOperation<TriggerHookType>
     | ExecuteExtractPieceMetadataOperation
     | ExecuteValidateAuthOperation
+    | ExecuteStepOperation
 
 
 export const EngineStdout = z.object({
@@ -114,6 +117,21 @@ export type ResumeExecuteFlowOperation = BaseExecuteFlowOperation<ExecutionType.
 }
 
 export type ExecuteFlowOperation = BeginExecuteFlowOperation | ResumeExecuteFlowOperation
+
+export type ExecuteStepOperation = BaseEngineOperation & {
+    flowVersion: FlowVersion
+    flowRunId: FlowRunId
+    stepName: string
+    executionType: ExecutionType
+    stepOutputs: Record<string, StepOutput>
+    resumePayload?: unknown
+    resumeReason?: ResumeReason
+    runEnvironment: RunEnvironment
+    workerHandlerId: string | null
+    httpRequestId: string | null
+    streamStepProgress: StreamStepProgress
+    logsFileId?: string
+}
 
 export enum ResumeReason {
     WAITPOINT = 'WAITPOINT',

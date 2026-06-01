@@ -53,7 +53,7 @@ const STATUS_CATEGORIES = [
   },
   {
     label: 'Queued',
-    statuses: [FlowRunStatus.QUEUED],
+    statuses: [FlowRunStatus.QUEUED, FlowRunStatus.STEP_QUEUED],
     color: 'var(--muted-foreground)',
   },
   {

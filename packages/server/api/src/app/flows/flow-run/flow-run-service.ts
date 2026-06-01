@@ -25,6 +25,7 @@ import {
     ResumeReason,
     RunEnvironment,
     SampleDataFileType,
+    SchedulingMode,
     SeekPage,
     StreamStepProgress,
     WorkerJobType,
@@ -34,6 +35,7 @@ import { FastifyBaseLogger } from 'fastify'
 import pLimit from 'p-limit'
 import { ArrayContains, In, IsNull, Not, Repository, SelectQueryBuilder } from 'typeorm'
 import { repoFactory } from '../../core/db/repo-factory'
+import { stepLevelSchedulingFlag } from '../../ee/platform/platform-plan/step-level-scheduling-flag'
 import { fileService } from '../../file/file.service'
 import { buildPaginator } from '../../helper/pagination/build-paginator'
 import { paginationHelper } from '../../helper/pagination/pagination-utils'
@@ -49,8 +51,9 @@ import { sampleDataService } from '../step-run/sample-data.service'
 import { FlowRunEntity } from './flow-run-entity'
 import { flowRunSideEffects } from './flow-run-side-effects'
 import { runsMetadataQueue } from './flow-runs-queue'
+import { stepOrchestrator } from './step-orchestrator'
 
-const CANCELLABLE_STATUSES: FlowRunStatus[] = [FlowRunStatus.PAUSED, FlowRunStatus.QUEUED]
+const CANCELLABLE_STATUSES: FlowRunStatus[] = [FlowRunStatus.PAUSED, FlowRunStatus.QUEUED, FlowRunStatus.STEP_QUEUED]
 
 
 const tracer = trace.getTracer('flow-run-service')
@@ -278,6 +281,7 @@ export const flowRunService = (log: FastifyBaseLogger) => ({
         platformId,
         stepNameToTest,
         environment,
+        schedulingMode,
     }: StartParams): Promise<FlowRun> {
         return tracer.startActiveSpan('flowRun.start', {
             attributes: {
@@ -301,23 +305,26 @@ export const flowRunService = (log: FastifyBaseLogger) => ({
                     failParentOnFailure,
                     stepNameToTest,
                     environment,
+                    schedulingMode,
                 }, log)
                 span.setAttribute('flowRun.id', newFlowRun.id)
 
-                await addToQueue({
-                    flowRun: newFlowRun,
-                    platformId,
-                    payload,
-                    executeTrigger,
-                    executionType,
-                    workerHandlerId,
-                    httpRequestId,
-                    streamStepProgress,
-                }, log)
+                if (schedulingMode !== SchedulingMode.EXTERNAL) {
+                    await addToQueue({
+                        flowRun: newFlowRun,
+                        platformId,
+                        payload,
+                        executeTrigger,
+                        executionType,
+                        workerHandlerId,
+                        httpRequestId,
+                        streamStepProgress,
+                    }, log)
+                    span.setAttribute('flowRun.queued', true)
+                }
 
-                span.setAttribute('flowRun.queued', true)
                 await flowRunSideEffects(log).onStart(newFlowRun)
-                log.info({ runId: newFlowRun.id, flowId, projectId, executionType }, 'Flow run started')
+                log.info({ runId: newFlowRun.id, flowId, projectId, executionType, schedulingMode }, 'Flow run started')
                 return newFlowRun
             }
             finally {
@@ -451,6 +458,14 @@ async function cancelSingleRun(log: FastifyBaseLogger, flowRun: FlowRun, platfor
         jobId: flowRun.id,
         platformId,
     })
+    const stepLevelEnabled = await stepLevelSchedulingFlag.isEnabled(platformId, log)
+    if (stepLevelEnabled) {
+        await stepOrchestrator(log).cancelPendingSteps({
+            flowRunId: flowRun.id,
+            projectId: flowRun.projectId,
+            platformId,
+        })
+    }
     await runsMetadataQueue(log).add({
         id: flowRun.id,
         projectId: flowRun.projectId,
@@ -562,15 +577,106 @@ export async function addToQueue(params: AddToQueueParams, log: FastifyBaseLogge
     const traceContext: Record<string, string> = {}
     propagation.inject(context.active(), traceContext)
 
-    let jobPayload: JobPayload = { type: 'inline', value: null }
-    if (!isNil(params.payload) && isNil(params.workerHandlerId)) {
-        jobPayload = await payloadOffloader.offloadPayload(log, params.payload, params.flowRun.projectId, params.platformId)
-    }
-    else if (!isNil(params.payload)) {
-        jobPayload = await payloadOffloader.maybeOffloadPayload(log, params.payload, params.flowRun.projectId, params.platformId)
+    if (await stepLevelSchedulingFlag.isEnabled(params.platformId, log)) {
+        return enqueueWithStepLevelScheduling(params, logsFileId, traceContext, log)
     }
 
-    const commonJobData = {
+    const jobPayload = await resolveJobPayload(params, log)
+    const commonJobData = buildCommonJobData(params, jobPayload, logsFileId, traceContext)
+
+    const data: ExecuteFlowJobData = params.executionType === ExecutionType.RESUME
+        ? { ...commonJobData, executionType: ExecutionType.RESUME, resumeReason: params.resumeReason }
+        : { ...commonJobData, executionType: ExecutionType.BEGIN, executeTrigger: params.executeTrigger }
+
+    await jobQueue(log).add({
+        id: params.flowRun.id,
+        type: JobType.ONE_TIME,
+        data,
+    })
+    return params.flowRun
+}
+
+async function enqueueWithStepLevelScheduling(
+    params: AddToQueueParams,
+    logsFileId: string,
+    traceContext: Record<string, string>,
+    log: FastifyBaseLogger,
+): Promise<FlowRun> {
+    if (params.executionType === ExecutionType.BEGIN) {
+        const jobPayload = await resolveJobPayload(params, log)
+        const commonJobData = buildCommonJobData(params, jobPayload, logsFileId, traceContext)
+
+        const data: ExecuteFlowJobData = {
+            ...commonJobData,
+            executionType: ExecutionType.BEGIN,
+            executeTrigger: params.executeTrigger,
+        }
+
+        await jobQueue(log).add({
+            id: params.flowRun.id,
+            type: JobType.ONE_TIME,
+            data,
+        })
+        return params.flowRun
+    }
+
+    const { resumeReason } = params
+    const failedStepName = params.flowRun.failedStep?.name
+
+    if (!isNil(failedStepName)) {
+        await stepOrchestrator(log).enqueueStepResume({
+            flowRunId: params.flowRun.id,
+            projectId: params.flowRun.projectId,
+            platformId: params.platformId,
+            flowVersionId: params.flowRun.flowVersionId,
+            stepName: failedStepName,
+            resumePayload: params.payload,
+            resumeReason,
+            environment: params.flowRun.environment,
+            logsFileId,
+            workerHandlerId: params.workerHandlerId ?? null,
+            httpRequestId: params.httpRequestId,
+            streamStepProgress: params.streamStepProgress,
+            stepNameToTest: params.flowRun.stepNameToTest ?? undefined,
+            traceContext,
+        })
+        return params.flowRun
+    }
+
+    const jobPayload = await resolveJobPayload(params, log)
+    const commonJobData = buildCommonJobData(params, jobPayload, logsFileId, traceContext)
+
+    const data: ExecuteFlowJobData = {
+        ...commonJobData,
+        executionType: ExecutionType.RESUME,
+        resumeReason,
+    }
+
+    await jobQueue(log).add({
+        id: params.flowRun.id,
+        type: JobType.ONE_TIME,
+        data,
+    })
+    return params.flowRun
+}
+
+async function resolveJobPayload(params: AddToQueueParams, log: FastifyBaseLogger): Promise<JobPayload> {
+    if (isNil(params.payload)) {
+        return { type: 'inline', value: null }
+    }
+    if (isNil(params.workerHandlerId)) {
+        return payloadOffloader.offloadPayload(log, params.payload, params.flowRun.projectId, params.platformId)
+    }
+    return payloadOffloader.maybeOffloadPayload(log, params.payload, params.flowRun.projectId, params.platformId)
+}
+
+function buildCommonJobData(
+    params: AddToQueueParams,
+    jobPayload: JobPayload,
+    logsFileId: string,
+    traceContext: Record<string, string>,
+) {
+    return {
         schemaVersion: LATEST_JOB_DATA_SCHEMA_VERSION,
         workerHandlerId: params.workerHandlerId ?? null,
         projectId: params.flowRun.projectId,
@@ -588,23 +694,6 @@ export async function addToQueue(params: AddToQueueParams, log: FastifyBaseLogge
         logsFileId,
         traceContext,
     }
-    const data: ExecuteFlowJobData = params.executionType === ExecutionType.RESUME
-        ? {
-            ...commonJobData,
-            executionType: ExecutionType.RESUME,
-            resumeReason: params.resumeReason,
-        }
-        : {
-            ...commonJobData,
-            executionType: ExecutionType.BEGIN,
-            executeTrigger: params.executeTrigger,
-        }
-    await jobQueue(log).add({
-        id: params.flowRun.id,
-        type: JobType.ONE_TIME,
-        data,
-    })
-    return params.flowRun
 }
 
 export async function findFlowRunOrThrow(flowRunId: FlowRunId): Promise<FlowRun> {
@@ -652,6 +741,7 @@ async function queueOrCreateInstantly(params: CreateParams, log: FastifyBaseLogg
         failParentOnFailure: params.failParentOnFailure ?? true,
         status: FlowRunStatus.QUEUED,
         stepNameToTest: params.stepNameToTest,
+        schedulingMode: params.schedulingMode ?? SchedulingMode.INTERNAL,
         created: now,
         updated: now,
         tags: [],
@@ -681,6 +771,7 @@ type CreateParams = {
     stepNameToTest?: string
     flowId: FlowId
     environment: RunEnvironment
+    schedulingMode?: SchedulingMode
 }
 
 type ListParams = {
@@ -736,6 +827,7 @@ type StartParams = {
     httpRequestId: string | undefined
     streamStepProgress: StreamStepProgress
     sampleData?: Record<string, unknown>
+    schedulingMode?: SchedulingMode
 }
 
 

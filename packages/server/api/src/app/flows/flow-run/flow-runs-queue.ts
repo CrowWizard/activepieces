@@ -97,7 +97,7 @@ export const runsMetadataQueue = (log: FastifyBaseLogger) => ({
                             }
 
                             const parentRunId = savedFlowRun.parentRunId
-                            const shouldMarkParentAsFailed = savedFlowRun.failParentOnFailure && !isNil(parentRunId) && ![FlowRunStatus.SUCCEEDED, FlowRunStatus.RUNNING, FlowRunStatus.PAUSED, FlowRunStatus.QUEUED].includes(savedFlowRun.status)
+                            const shouldMarkParentAsFailed = savedFlowRun.failParentOnFailure && !isNil(parentRunId) && ![FlowRunStatus.SUCCEEDED, FlowRunStatus.RUNNING, FlowRunStatus.PAUSED, FlowRunStatus.QUEUED, FlowRunStatus.STEP_QUEUED].includes(savedFlowRun.status)
                             if (shouldMarkParentAsFailed) {
                                 await markParentRunAsFailed({
                                     parentRunId,

@@ -7,6 +7,7 @@ import {
     ExecuteExtractPieceMetadataOperation,
     ExecuteFlowOperation,
     ExecutePropsOptions,
+    ExecuteStepOperation,
     ExecuteTriggerOperation,
     ExecuteValidateAuthOperation,
     ExecutionError,
@@ -18,6 +19,7 @@ import { authValidationOperation } from './auth-validation.operation'
 import { flowOperation } from './flow.operation'
 import { pieceMetadataOperation } from './piece-metadata.operation'
 import { propertyOperation } from './property.operation'
+import { stepOperation } from './step.operation'
 import { triggerHookOperation } from './trigger-hook.operation'
 
 
@@ -38,6 +40,9 @@ export async function execute(operationType: EngineOperationType, operation: Eng
             }
             case EngineOperationType.EXECUTE_VALIDATE_AUTH: {
                 return authValidationOperation.execute(operation as ExecuteValidateAuthOperation)
+            }
+            case EngineOperationType.EXECUTE_STEP: {
+                return stepOperation.execute(operation as ExecuteStepOperation)
             }
             default: {
                 throw new ExecutionError('Unsupported operation type', `Unsupported operation type: ${operationType}`, ExecutionErrorType.ENGINE)

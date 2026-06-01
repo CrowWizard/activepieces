@@ -6,16 +6,19 @@ import {
     FlowRunId,
     FlowRunStatus,
     isFlowRunStateTerminal,
+    isNil,
     ResumeReason,
     RunEnvironment,
     StreamStepProgress,
 } from '@activepieces/shared'
 import { FastifyBaseLogger } from 'fastify'
 import { StatusCodes } from 'http-status-codes'
+import { stepLevelSchedulingFlag } from '../../../ee/platform/platform-plan/step-level-scheduling-flag'
 import { projectService } from '../../../project/project-service'
 import { engineResponseWatcher } from '../../../workers/engine-response-watcher'
 import { addToQueue, findFlowRunOrThrow, flowRunService, WEBHOOK_TIMEOUT_MS } from '../flow-run-service'
 import { flowRunSideEffects } from '../flow-run-side-effects'
+import { stepOrchestrator } from '../step-orchestrator'
 import { waitpointService } from './waitpoint-service'
 import { Waitpoint, WaitpointResumePayload } from './waitpoint-types'
 
@@ -111,18 +114,41 @@ export const resumeService = (log: FastifyBaseLogger) => ({
 async function enqueueResume(params: EnqueueResumeParams, log: FastifyBaseLogger): Promise<void> {
     const { flowRun, waitpoint, resumePayload, workerHandlerId, httpRequestId } = params
     const platformId = await projectService(log).getPlatformId(flowRun.projectId)
-    await addToQueue({
-        payload: resumePayload,
-        flowRun,
-        platformId,
-        workerHandlerId: workerHandlerId ?? waitpoint?.workerHandlerId ?? undefined,
-        httpRequestId: httpRequestId ?? waitpoint?.httpRequestId ?? apId(),
-        streamStepProgress: flowRun.environment === RunEnvironment.TESTING
-            ? StreamStepProgress.WEBSOCKET
-            : StreamStepProgress.NONE,
-        executionType: ExecutionType.RESUME,
-        resumeReason: ResumeReason.WAITPOINT,
-    }, log)
+    const effectiveWorkerHandlerId = workerHandlerId ?? waitpoint?.workerHandlerId ?? undefined
+    const effectiveHttpRequestId = httpRequestId ?? waitpoint?.httpRequestId ?? apId()
+    const streamStepProgress = flowRun.environment === RunEnvironment.TESTING
+        ? StreamStepProgress.WEBSOCKET
+        : StreamStepProgress.NONE
+
+    if (await stepLevelSchedulingFlag.isEnabled(platformId, log) && !isNil(waitpoint) && !isNil(waitpoint.stepName) && waitpoint.stepName !== '') {
+        await stepOrchestrator(log).enqueueStepResume({
+            flowRunId: flowRun.id,
+            projectId: flowRun.projectId,
+            platformId,
+            flowVersionId: flowRun.flowVersionId,
+            stepName: waitpoint.stepName,
+            resumePayload: resumePayload ?? undefined,
+            resumeReason: ResumeReason.WAITPOINT,
+            environment: flowRun.environment,
+            logsFileId: flowRun.logsFileId ?? apId(),
+            workerHandlerId: effectiveWorkerHandlerId ?? null,
+            httpRequestId: effectiveHttpRequestId,
+            streamStepProgress,
+        })
+    }
+    else {
+        await addToQueue({
+            payload: resumePayload,
+            flowRun,
+            platformId,
+            workerHandlerId: effectiveWorkerHandlerId,
+            httpRequestId: effectiveHttpRequestId,
+            streamStepProgress,
+            executionType: ExecutionType.RESUME,
+            resumeReason: ResumeReason.WAITPOINT,
+        }, log)
+    }
+
     await flowRunSideEffects(log).onResume(flowRun)
 }
 

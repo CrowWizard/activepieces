@@ -379,6 +379,10 @@ import { RemoveMcpServerStatus1790000000000 } from './migration/postgres/1790000
 import { RenameEnabledToolsToDisabledTools1791000000000 } from './migration/postgres/1791000000000-RenameEnabledToolsToDisabledTools'
 import { AddTriggerSourceFlowVersionIdIndex1792000000000 } from './migration/postgres/1792000000000-AddTriggerSourceFlowVersionIdIndex'
 import { AddVariableTable1793000000000 } from './migration/postgres/1793000000000-AddVariableTable'
+import { AddFlowRunStepTable1794000000000 } from './migration/postgres/1794000000000-AddFlowRunStepTable'
+import { AddStepLevelSchedulingEnabled1795000000000 } from './migration/postgres/1795000000000-AddStepLevelSchedulingEnabled'
+import { AddStepObservabilityColumns1796000000000 } from './migration/postgres/1796000000000-AddStepObservabilityColumns'
+import { AddSchedulingModeToFlowRun1797000000000 } from './migration/postgres/1797000000000-AddSchedulingModeToFlowRun'
 
 const getSslConfig = (): boolean | TlsOptions => {
     const useSsl = system.get(AppSystemProp.POSTGRES_USE_SSL)
@@ -773,6 +777,10 @@ export const getMigrations = (): (new () => Migration)[] => {
         AddUiMessagesToChatConversation1778983371000,
         AddVariableTable1793000000000,
         AddStatusToChatConversation1779500000000,
+        AddFlowRunStepTable1794000000000,
+        AddStepLevelSchedulingEnabled1795000000000,
+        AddStepObservabilityColumns1796000000000,
+        AddSchedulingModeToFlowRun1797000000000,
     ]
     return migrations
 }

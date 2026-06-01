@@ -14,6 +14,7 @@ export enum FlowRunStatus {
     TIMEOUT = 'TIMEOUT',
     CANCELED = 'CANCELED',
     LOG_SIZE_EXCEEDED = 'LOG_SIZE_EXCEEDED',
+    STEP_QUEUED = 'STEP_QUEUED',
 }
 
 export enum PauseType {
@@ -75,6 +76,7 @@ export const isFlowRunStateTerminal = ({ status, ignoreInternalError }: { status
         case FlowRunStatus.QUEUED:
         case FlowRunStatus.RUNNING:
         case FlowRunStatus.PAUSED:
+        case FlowRunStatus.STEP_QUEUED:
             return false
     }
 }

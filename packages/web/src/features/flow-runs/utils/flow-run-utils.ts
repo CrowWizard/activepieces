@@ -198,6 +198,7 @@ export const flowRunUtils = {
   } {
     switch (status) {
       case FlowRunStatus.QUEUED:
+      case FlowRunStatus.STEP_QUEUED:
         return {
           variant: 'default',
           Icon: Timer,

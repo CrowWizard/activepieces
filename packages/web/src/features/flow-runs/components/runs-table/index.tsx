@@ -328,7 +328,8 @@ export const RunsTable = () => {
           const allCancellable = selectedRows.every(
             (row) =>
               row.status === FlowRunStatus.PAUSED ||
-              row.status === FlowRunStatus.QUEUED,
+              row.status === FlowRunStatus.QUEUED ||
+              row.status === FlowRunStatus.STEP_QUEUED,
           );
           const isDisabled =
             selectedRows.length === 0 ||
@@ -365,10 +366,12 @@ export const RunsTable = () => {
                             ? (status.filter(
                                 (s) =>
                                   s === FlowRunStatus.PAUSED ||
-                                  s === FlowRunStatus.QUEUED,
+                                  s === FlowRunStatus.QUEUED ||
+                                  s === FlowRunStatus.STEP_QUEUED,
                               ) as (
                                 | typeof FlowRunStatus.PAUSED
                                 | typeof FlowRunStatus.QUEUED
+                                | typeof FlowRunStatus.STEP_QUEUED
                               )[])
                             : undefined,
                         flowId: searchParams.getAll('flowId'),

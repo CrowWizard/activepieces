@@ -31,6 +31,7 @@ import { FileEntity } from '../file/file.entity'
 import { FlagEntity } from '../flags/flag.entity'
 import { FlowEntity } from '../flows/flow/flow.entity'
 import { FlowRunEntity } from '../flows/flow-run/flow-run-entity'
+import { FlowRunStepEntity } from '../flows/flow-run/flow-run-step-entity'
 import { WaitpointEntity } from '../flows/flow-run/waitpoint/waitpoint-entity'
 import { FlowVersionEntity } from '../flows/flow-version/flow-version-entity'
 import { FolderEntity } from '../flows/folder/folder.entity'
@@ -76,6 +77,7 @@ function getEntities(): EntitySchema<unknown>[] {
         FlowEntity,
         FlowVersionEntity,
         FlowRunEntity,
+        FlowRunStepEntity,
         ProjectEntity,
         StoreEntryEntity,
         UserEntity,

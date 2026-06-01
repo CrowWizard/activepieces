@@ -11,6 +11,7 @@ import { platformService } from '../../../platform/platform.service'
 import { userService } from '../../../user/user-service'
 import { platformAiCreditsService } from './platform-ai-credits.service'
 import { PlatformPlanEntity } from './platform-plan.entity'
+import { stepLevelSchedulingFlag } from './step-level-scheduling-flag'
 import { stripeHelper } from './stripe-helper'
 
 export const platformPlanRepo = repoFactory(PlatformPlanEntity)
@@ -66,6 +67,9 @@ export const platformPlanService = (log: FastifyBaseLogger) => ({
         const updatedPlatformPlan = await platformPlanRepo().save({ ...platformPlan, ...normalizedUpdate })
         if (!isNil(updatedPlatformPlan.plan)) {
             await distributedStore.put(getPlatformPlanNameKey(platformId), updatedPlatformPlan.plan)
+        }
+        if ('stepLevelSchedulingEnabled' in normalizedUpdate) {
+            await stepLevelSchedulingFlag.refresh(platformId, updatedPlatformPlan.stepLevelSchedulingEnabled)
         }
         return updatedPlatformPlan
     },

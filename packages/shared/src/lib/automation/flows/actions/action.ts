@@ -31,6 +31,8 @@ const commonActionProps = {
 const commonActionSettings = {
     sampleData: SampleDataSetting.optional(),
     customLogoUrl: z.string().optional(),
+    workerGroupId: z.string().optional(),
+    timeoutSeconds: z.number().positive().optional(),
 }
 
 export const ActionErrorHandlingOptions = z.object({

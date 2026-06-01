@@ -1,5 +1,5 @@
 import { ContextVersion } from '@activepieces/pieces-framework'
-import { BeginExecuteFlowOperation, DEFAULT_MCP_DATA, EngineGenericError, ExecutePropsOptions, ExecuteToolOperation, ExecuteTriggerOperation, ExecutionState, ExecutionType, flowStructureUtil, FlowVersionState, PlatformId, Project, ProjectId, ResumeExecuteFlowOperation, ResumePayload, RunEnvironment, StreamStepProgress, TriggerHookType } from '@activepieces/shared'
+import { BeginExecuteFlowOperation, DEFAULT_MCP_DATA, EngineGenericError, ExecutePropsOptions, ExecuteStepOperation, ExecuteToolOperation, ExecuteTriggerOperation, ExecutionState, ExecutionType, flowStructureUtil, FlowVersionState, PlatformId, Project, ProjectId, ResumeExecuteFlowOperation, ResumePayload, RunEnvironment, StreamStepProgress, TriggerHookType } from '@activepieces/shared'
 import { createPropsResolver, PropsResolver } from '../../variables/props-resolver'
 
 type RetryConstants = {
@@ -206,6 +206,31 @@ export class EngineConstants {
             resumePayload: undefined,
             runEnvironment: undefined,
             stepNameToTest: undefined,
+            timeoutInSeconds: input.timeoutInSeconds,
+            platformId: input.platformId,
+            stepNames: flowStructureUtil.getAllSteps(input.flowVersion.trigger).map((step) => step.name),
+        })
+    }
+
+    public static fromExecuteStepInput(input: ExecuteStepOperation): EngineConstants {
+        return new EngineConstants({
+            flowId: input.flowVersion.flowId,
+            flowVersionId: input.flowVersion.id,
+            flowVersionState: input.flowVersion.state,
+            triggerPieceName: input.flowVersion.trigger.settings.pieceName,
+            flowRunId: input.flowRunId,
+            publicApiUrl: input.publicApiUrl,
+            internalApiUrl: input.internalApiUrl,
+            retryConstants: DEFAULT_RETRY_CONSTANTS,
+            engineToken: input.engineToken,
+            projectId: input.projectId,
+            streamStepProgress: input.streamStepProgress,
+            workerHandlerId: input.workerHandlerId ?? null,
+            httpRequestId: input.httpRequestId ?? null,
+            resumePayload: input.executionType === ExecutionType.RESUME ? input.resumePayload as ResumePayload : undefined,
+            runEnvironment: input.runEnvironment,
+            stepNameToTest: undefined,
+            logsFileId: input.logsFileId,
             timeoutInSeconds: input.timeoutInSeconds,
             platformId: input.platformId,
             stepNames: flowStructureUtil.getAllSteps(input.flowVersion.trigger).map((step) => step.name),

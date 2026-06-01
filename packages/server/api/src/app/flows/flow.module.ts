@@ -5,11 +5,13 @@ import { flowVersionController } from './flow/flow-version.controller'
 import { flowController } from './flow/flow.controller'
 import { flowRunService } from './flow-run/flow-run-service'
 import { sampleDataController } from './step-run/sample-data.controller'
+import { stepRunController } from './step-run/step-run.controller'
 
 export const flowModule: FastifyPluginAsyncZod = async (app) => {
     await app.register(flowVersionController, { prefix: '/v1/flows' })
     await app.register(flowController, { prefix: '/v1/flows' })
     await app.register(sampleDataController, { prefix: '/v1/sample-data' })
+    await app.register(stepRunController, { prefix: '/v1/step-runs' })
     websocketService.addListener(PrincipalType.USER, WebsocketServerEvent.TEST_FLOW_RUN, (socket) => {
         return async (data: TestFlowRunRequestBody, principal, projectId) => {
             const flowRun = await flowRunService(app.log).test({

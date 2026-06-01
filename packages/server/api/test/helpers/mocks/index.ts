@@ -483,6 +483,7 @@ export const createMockFlowRun = (flowRun?: Partial<FlowRun>): FlowRun => {
         finishTime: flowRun?.finishTime ?? faker.date.recent().toISOString(),
         environment:
             flowRun?.environment ?? faker.helpers.enumValue(RunEnvironment),
+        schedulingMode: flowRun?.schedulingMode,
     }
 }
 

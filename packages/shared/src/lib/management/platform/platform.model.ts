@@ -102,6 +102,7 @@ export const PlatformPlan = z.object({
     canary: z.boolean(),
     /** @deprecated custom domains have been removed; column kept for backwards compatibility with existing DBs */
     customDomainsEnabled: z.boolean(),
+    stepLevelSchedulingEnabled: z.boolean(),
     workerGroupId: Nullable(z.string()),
 })
 export type PlatformPlan = z.infer<typeof PlatformPlan>

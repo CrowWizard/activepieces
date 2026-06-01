@@ -53,6 +53,9 @@ export type WorkerToApiContract = {
     updateChatProgress(input: UpdateChatProgressRequest): Promise<void>
     updateProjectContext(input: UpdateProjectContextRequest): Promise<void>
     executeChatTool(input: ExecuteChatToolRequest): Promise<ExecuteChatToolResponse>
+    getStepOutputs(input: { flowRunId: string, projectId: string }): Promise<Record<string, unknown>>
+    getFlowRunStatus(input: { flowRunId: string, projectId: string }): Promise<FlowRun['status'] | null>
+    markStepStarted(input: { flowRunId: string, stepName: string, projectId: string }): Promise<void>
 }
 
 export type SendChatEventRequest = {

@@ -61,6 +61,24 @@ export class FlowExecutorContext {
         return new FlowExecutorContext({ engineApi: params?.engineApi, slicingEnabled: params?.slicingEnabled })
     }
 
+    static fromStepOutputs(params: {
+        steps: Record<string, StepOutput>
+        engineApi?: EngineApiConfig
+        slicingEnabled?: boolean
+    }): FlowExecutorContext {
+        return new FlowExecutorContext({
+            steps: params.steps,
+            engineApi: params.engineApi,
+            slicingEnabled: params.slicingEnabled ?? true,
+            verdict: { status: FlowRunStatus.RUNNING },
+            currentPath: StepExecutionPath.empty(),
+            tags: [],
+            stepsCount: Object.keys(params.steps).length,
+            duration: -1,
+            materializeCache: new Map(),
+        })
+    }
+
     public finishExecution(): FlowExecutorContext {
         if (this.verdict.status === FlowRunStatus.RUNNING) {
             return new FlowExecutorContext({

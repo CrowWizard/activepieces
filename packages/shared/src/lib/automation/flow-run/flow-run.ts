@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { SchedulingMode } from '../../automation/flows/step-run'
 import { ErrorCode } from '../../core/common/activepieces-error'
 import { BaseModelSchema, Nullable } from '../../core/common/base-model'
 import { ApId } from '../../core/common/id-generator'
@@ -75,6 +76,7 @@ export const FlowRun = z.object({
     stepNameToTest: z.string().optional(),
     archivedAt: Nullable(z.string()),
     stepsCount: z.number().optional(),
+    schedulingMode: z.nativeEnum(SchedulingMode).default(SchedulingMode.INTERNAL),
 })
 
 export type FlowRun = z.infer<typeof FlowRun> & ExecutionState

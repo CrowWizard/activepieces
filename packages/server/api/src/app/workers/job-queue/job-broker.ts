@@ -1,9 +1,13 @@
-import { ConsumeJobRequest, ConsumeJobResponse, EngineResponseStatus, isNil, JobData, tryCatch } from '@activepieces/shared'
+import { ConsumeJobRequest, ConsumeJobResponse, EngineResponseStatus, ExecuteFlowJobData, ExecuteStepJobData, ExecutionType, isNil, JobData, SchedulingMode, StepOutput, toFlowRunStepType, tryCatch, WorkerJobType } from '@activepieces/shared'
 import { Worker as BullMQWorker, Job, UnrecoverableError } from 'bullmq'
 import { BullMQOtel } from 'bullmq-otel'
 import { FastifyBaseLogger } from 'fastify'
 import { accessTokenManager } from '../../authentication/lib/access-token-manager'
 import { redisConnections } from '../../database/redis-connections'
+import { stepLevelSchedulingFlag } from '../../ee/platform/platform-plan/step-level-scheduling-flag'
+import { flowRunRepo } from '../../flows/flow-run/flow-run-service'
+import { flowRunStepService } from '../../flows/flow-run/flow-run-step-service'
+import { stepOrchestrator } from '../../flows/flow-run/step-orchestrator'
 import { system } from '../../helper/system/system'
 import { AppSystemProp } from '../../helper/system/system-props'
 import { engineResponseWatcher } from '../engine-response-watcher'
@@ -272,6 +276,80 @@ export const jobBroker = (log: FastifyBaseLogger) => ({
                 log.error({ jobId: input.jobId, error: String(interceptorError) }, '[jobBroker] Interceptor onJobFinished failed')
             }
         }
+
+        if (jobData.jobType === WorkerJobType.EXECUTE_STEP) {
+            const stepJobData = jobData as ExecuteStepJobData
+            const stepResponse = input.response as StepOutput | undefined
+            if (!isNil(stepResponse)) {
+                const shouldSkipOrchestration = stepJobData.skipOrchestration
+                    && await isExternalSchedulingMode(stepJobData.flowRunId, log)
+
+                if (shouldSkipOrchestration) {
+                    await flowRunStepService(log).save({
+                        flowRunId: stepJobData.flowRunId,
+                        projectId: stepJobData.projectId,
+                        stepName: stepJobData.stepName,
+                        stepType: toFlowRunStepType(stepResponse.type),
+                        status: stepResponse.status,
+                        input: stepResponse.input,
+                        output: stepResponse.output,
+                        duration: stepResponse.duration,
+                        errorMessage: stepResponse.errorMessage,
+                        queueName: input.queueName,
+                        finishedAt: new Date().toISOString(),
+                    })
+                    log.info({ flowRunId: stepJobData.flowRunId, stepName: stepJobData.stepName },
+                        '[jobBroker] External scheduling — skipping orchestrator')
+                }
+                else {
+                    if (stepJobData.skipOrchestration) {
+                        log.warn({ flowRunId: stepJobData.flowRunId }, '[jobBroker] skipOrchestration set on non-EXTERNAL flow run — falling back to orchestrator')
+                    }
+                    await stepOrchestrator(log).onStepCompleted({
+                        flowRunId: stepJobData.flowRunId,
+                        projectId: stepJobData.projectId,
+                        platformId: stepJobData.platformId,
+                        stepName: stepJobData.stepName,
+                        stepType: toFlowRunStepType(stepResponse.type),
+                        stepOutput: stepResponse,
+                        flowVersionId: stepJobData.flowVersionId,
+                        environment: stepJobData.environment,
+                        logsFileId: stepJobData.logsFileId,
+                        workerHandlerId: stepJobData.workerHandlerId,
+                        httpRequestId: stepJobData.httpRequestId,
+                        streamStepProgress: stepJobData.streamStepProgress,
+                        stepNameToTest: stepJobData.stepNameToTest,
+                        traceContext: stepJobData.traceContext,
+                        queueName: input.queueName,
+                    })
+                }
+            }
+            else {
+                log.error({ jobId: input.jobId, flowRunId: stepJobData.flowRunId }, '[jobBroker] EXECUTE_STEP completed without step response — skipping orchestrator')
+            }
+        }
+
+        if (jobData.jobType === WorkerJobType.EXECUTE_FLOW && !failed) {
+            const flowJobData = jobData as ExecuteFlowJobData
+            if (flowJobData.executionType === ExecutionType.BEGIN) {
+                if (await stepLevelSchedulingFlag.isEnabled(flowJobData.platformId, log)) {
+                    await stepOrchestrator(log).enqueueFirstStep({
+                        flowRunId: flowJobData.runId,
+                        projectId: flowJobData.projectId,
+                        platformId: flowJobData.platformId,
+                        flowVersionId: flowJobData.flowVersionId,
+                        triggerStepName: 'trigger',
+                        environment: flowJobData.environment,
+                        logsFileId: flowJobData.logsFileId,
+                        workerHandlerId: flowJobData.workerHandlerId,
+                        httpRequestId: flowJobData.httpRequestId,
+                        streamStepProgress: flowJobData.streamStepProgress,
+                        stepNameToTest: flowJobData.stepNameToTest,
+                        traceContext: flowJobData.traceContext as Record<string, string> | undefined,
+                    })
+                }
+            }
+        }
     },
 
     async extendLock(input: { jobId: string, token: string, queueName: string }): Promise<void> {
@@ -298,3 +376,12 @@ export const jobBroker = (log: FastifyBaseLogger) => ({
         workerPromises.clear()
     },
 })
+
+async function isExternalSchedulingMode(flowRunId: string, log: FastifyBaseLogger): Promise<boolean> {
+    const flowRun = await flowRunRepo().findOneBy({ id: flowRunId })
+    if (isNil(flowRun)) {
+        log.warn({ flowRunId }, '[jobBroker] Flow run not found when checking scheduling mode — defaulting to internal')
+        return false
+    }
+    return flowRun.schedulingMode === SchedulingMode.EXTERNAL
+}

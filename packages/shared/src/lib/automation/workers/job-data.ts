@@ -9,7 +9,7 @@ import { FlowVersion } from '../flows/flow-version'
 import { FlowTriggerType } from '../flows/triggers/trigger'
 import { PiecePackage } from '../pieces/piece'
 
-export const LATEST_JOB_DATA_SCHEMA_VERSION = 10
+export const LATEST_JOB_DATA_SCHEMA_VERSION = 12
 
 export const InlineJobPayload = z.object({
     type: z.literal('inline'),
@@ -64,6 +64,8 @@ export function getDefaultJobPriority(job: JobData): keyof typeof JOB_PRIORITY {
             return 'critical'
         case WorkerJobType.EXECUTE_CHAT_AGENT:
             return 'high'
+        case WorkerJobType.EXECUTE_STEP:
+            return getExecuteFlowPriority(job.environment, job.workerHandlerId)
     }
 }
 
@@ -79,6 +81,7 @@ export enum WorkerJobType {
     EXECUTE_EXTRACT_PIECE_INFORMATION = 'EXECUTE_EXTRACT_PIECE_INFORMATION',
     EVENT_DESTINATION = 'EVENT_DESTINATION',
     EXECUTE_CHAT_AGENT = 'EXECUTE_CHAT_AGENT',
+    EXECUTE_STEP = 'EXECUTE_STEP',
 }
 
 export const NON_SCHEDULED_JOB_TYPES: WorkerJobType[] = [
@@ -89,6 +92,7 @@ export const NON_SCHEDULED_JOB_TYPES: WorkerJobType[] = [
     WorkerJobType.EXECUTE_PROPERTY,
     WorkerJobType.EXECUTE_EXTRACT_PIECE_INFORMATION,
     WorkerJobType.EXECUTE_CHAT_AGENT,
+    WorkerJobType.EXECUTE_STEP,
 ] as const
 
 // Never change without increasing LATEST_JOB_DATA_SCHEMA_VERSION, and adding a migration
@@ -267,6 +271,30 @@ export const EventDestinationJobData = z.object({
 
 export type EventDestinationJobData = z.infer<typeof EventDestinationJobData>
 
+export const ExecuteStepJobData = z.object({
+    schemaVersion: z.number(),
+    jobType: z.literal(WorkerJobType.EXECUTE_STEP),
+    flowRunId: z.string(),
+    flowVersionId: z.string(),
+    stepName: z.string(),
+    executionType: z.nativeEnum(ExecutionType),
+    resumePayload: z.unknown().optional(),
+    resumeReason: z.nativeEnum(ResumeReason).optional(),
+    platformId: z.string(),
+    projectId: z.string(),
+    environment: z.nativeEnum(RunEnvironment),
+    logsFileId: z.string(),
+    workerHandlerId: z.union([z.string(), z.null()]).optional(),
+    httpRequestId: z.string().optional(),
+    streamStepProgress: z.nativeEnum(StreamStepProgress),
+    stepNameToTest: z.string().optional(),
+    sampleData: z.record(z.string(), z.unknown()).optional(),
+    traceContext: z.record(z.string(), z.string()).optional(),
+    stepTimeoutSeconds: z.number().positive().optional(),
+    skipOrchestration: z.boolean().default(false),
+})
+export type ExecuteStepJobData = z.infer<typeof ExecuteStepJobData>
+
 export const JobData = z.union([
     PollingJobData,
     RenewWebhookJobData,
@@ -275,6 +303,7 @@ export const JobData = z.union([
     UserInteractionJobData,
     EventDestinationJobData,
     ExecuteChatAgentJobData,
+    ExecuteStepJobData,
 ])
 export type JobData = z.infer<typeof JobData>
 export type JobPayload = z.infer<typeof JobPayload>

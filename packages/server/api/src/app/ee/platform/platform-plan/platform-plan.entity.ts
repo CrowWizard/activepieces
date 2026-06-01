@@ -155,6 +155,10 @@ export const PlatformPlanEntity = new EntitySchema<PlatformPlanSchema>({
             type: Boolean,
             nullable: false,
         },
+        stepLevelSchedulingEnabled: {
+            type: Boolean,
+            default: false,
+        },
         workerGroupId: {
             type: String,
             nullable: true,

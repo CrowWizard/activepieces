@@ -84,6 +84,12 @@ export const FlowRunEntity = new EntitySchema<FlowRunSchema>({
             nullable: false,
             default: 0,
         },
+        schedulingMode: {
+            type: String,
+            length: 20,
+            nullable: false,
+            default: 'INTERNAL',
+        },
         // @deprecated — kept for backwards compatibility, use waitpoint table instead
         pauseMetadata: {
             type: 'jsonb',

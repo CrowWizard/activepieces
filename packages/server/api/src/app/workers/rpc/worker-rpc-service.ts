@@ -17,7 +17,9 @@ import { distributedStore } from '../../database/redis-connections'
 import { chatRpcHandlers } from '../../ee/chat/chat-rpc-handlers'
 import { fileService } from '../../file/file.service'
 import { flowService } from '../../flows/flow/flow.service'
-import { flowRunService } from '../../flows/flow-run/flow-run-service'
+import { flowRunRepo, flowRunService } from '../../flows/flow-run/flow-run-service'
+import { flowRunStepRepo } from '../../flows/flow-run/flow-run-step-repo'
+import { flowRunStepService } from '../../flows/flow-run/flow-run-step-service'
 import { runsMetadataQueue } from '../../flows/flow-run/flow-runs-queue'
 import { flowVersionService } from '../../flows/flow-version/flow-version.service'
 import { rejectedPromiseHandler } from '../../helper/promise-handler'
@@ -257,6 +259,29 @@ export function createHandlers(log: FastifyBaseLogger, workerGroupId?: string): 
 
         async executeChatTool(input) {
             return chatRpcHandlers(log).executeChatTool(input)
+        },
+
+        async getStepOutputs(input) {
+            const { flowRunId, projectId } = input
+            const stepOutputs = await flowRunStepService(log).getStepOutputs({ flowRunId, projectId })
+            return stepOutputs as Record<string, unknown>
+        },
+
+        async getFlowRunStatus(input) {
+            const { flowRunId, projectId } = input
+            const flowRun = await flowRunRepo().findOneBy({ id: flowRunId, projectId })
+            return flowRun?.status ?? null
+        },
+
+        async markStepStarted(input) {
+            const { flowRunId, stepName, projectId } = input
+            const existing = await flowRunStepRepo().findOneBy({ flowRunId, stepName, projectId })
+            if (!isNil(existing)) {
+                await flowRunStepRepo().save({
+                    ...existing,
+                    startedAt: new Date().toISOString(),
+                })
+            }
         },
     }
 }

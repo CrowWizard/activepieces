@@ -4,6 +4,7 @@ import { eventDestinationJob } from './jobs/event-destination'
 import { executeFlowJob } from './jobs/execute-flow'
 import { executePollingJob } from './jobs/execute-polling'
 import { executePropertyJob } from './jobs/execute-property'
+import { executeStepJob } from './jobs/execute-step'
 import { executeTriggerHookJob } from './jobs/execute-trigger-hook'
 import { executeValidationJob } from './jobs/execute-validation'
 import { executeWebhookJob } from './jobs/execute-webhook'
@@ -22,6 +23,7 @@ const registry: Record<WorkerJobType, JobHandler> = {
     [WorkerJobType.EXECUTE_EXTRACT_PIECE_INFORMATION]: extractPieceInfoJob,
     [WorkerJobType.EVENT_DESTINATION]: eventDestinationJob,
     [WorkerJobType.EXECUTE_CHAT_AGENT]: executeChatAgentJob,
+    [WorkerJobType.EXECUTE_STEP]: executeStepJob,
 }
 
 export function getHandler(jobType: WorkerJobType): JobHandler<JobData> {

@@ -1,5 +1,5 @@
 import { apDayjsDuration, memoryLock } from '@activepieces/server-utils'
-import { ApId, EventDestinationJobData, ExecuteChatAgentJobData, ExecuteFlowJobData, getDefaultJobPriority, isNil, JOB_PRIORITY, JobData, PollingJobData, RenewWebhookJobData, ScheduleOptions, UserInteractionJobData, WebhookJobData, WorkerJobType } from '@activepieces/shared'
+import { ApId, EventDestinationJobData, ExecuteChatAgentJobData, ExecuteFlowJobData, ExecuteStepJobData, getDefaultJobPriority, isNil, JOB_PRIORITY, JobData, PollingJobData, RenewWebhookJobData, ScheduleOptions, UserInteractionJobData, WebhookJobData, WorkerJobType } from '@activepieces/shared'
 import { Job, Queue } from 'bullmq'
 import { BullMQOtel } from 'bullmq-otel'
 import { FastifyBaseLogger } from 'fastify'
@@ -24,7 +24,7 @@ export const jobQueue = (log: FastifyBaseLogger) => ({
         const { type, data } = params
 
         const platformId = data.platformId
-        const queueName = await getQueueName(platformId, log)
+        const queueName = params.queueName ?? await getQueueName(platformId, log)
         const queue = await ensureQueueExists({ log, queueName })
 
         switch (type) {
@@ -192,10 +192,11 @@ type BaseAddParams<JD extends Omit<JobData, 'engineToken'>, JT extends JobType> 
     data: JD
     type: JT
     delay?: number
+    queueName?: string
 }
 type RepeatingJobAddParams = BaseAddParams<PollingJobData | RenewWebhookJobData, JobType.REPEATING> & {
     scheduleOptions: ScheduleOptions
 }
-type OneTimeJobAddParams = BaseAddParams<ExecuteFlowJobData | WebhookJobData | UserInteractionJobData | EventDestinationJobData | ExecuteChatAgentJobData, JobType.ONE_TIME>
+type OneTimeJobAddParams = BaseAddParams<ExecuteFlowJobData | WebhookJobData | UserInteractionJobData | EventDestinationJobData | ExecuteChatAgentJobData | ExecuteStepJobData, JobType.ONE_TIME>
 
 export type AddJobParams<type extends JobType> = type extends JobType.REPEATING ? RepeatingJobAddParams : OneTimeJobAddParams
