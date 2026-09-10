@@ -2,24 +2,19 @@ import { createAction, Property } from '@activepieces/pieces-framework';
 import { tongyiAuth } from '../..';
 import { dashScopeClient } from '../common/client';
 
-const MODEL = 'wanx-background-generation-v3';
-const SUBMIT_PATH = '/api/v1/services/aigc/background-generation/generation';
+const MODEL = 'wanx-segmentation-matting';
+const SUBMIT_PATH = '/api/v1/services/aigc/image-segmentation/generation';
 
-export const generateBackground = createAction({
+export const removeBackground = createAction({
   auth: tongyiAuth,
-  name: 'generateBackground',
-  displayName: 'Generate Background',
+  name: 'removeBackground',
+  displayName: 'Remove Background',
   description:
-    'Generate a product image with AI background using a transparent PNG and a text prompt',
+    'Remove image background and produce a transparent PNG using AI segmentation',
   props: {
     imageFile: Property.File({
       displayName: 'Image file',
-      description: 'Transparent PNG image of the product',
-      required: true,
-    }),
-    backgroundPrompt: Property.ShortText({
-      displayName: 'Background prompt',
-      description: 'Description of the desired background scene',
+      description: 'Image to remove background from',
       required: true,
     }),
     filename: Property.ShortText({
@@ -35,7 +30,9 @@ export const generateBackground = createAction({
       submitPath: SUBMIT_PATH,
       input: {
         image_url: `data:image/png;base64,${propsValue.imageFile.base64}`,
-        prompt: propsValue.backgroundPrompt,
+      },
+      parameters: {
+        output_type: 'transparent',
       },
       filename: propsValue.filename,
       files,

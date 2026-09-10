@@ -35,11 +35,8 @@ export const imageProEdit = createAction({
     }),
   },
   async run({ auth, propsValue, files }) {
-    const apiKey = auth.props.apiKey;
-    const imageBase64 = propsValue.imageFile.base64;
-
     const input: Record<string, unknown> = {
-      image_url: `data:image/png;base64,${imageBase64}`,
+      image_url: `data:image/png;base64,${propsValue.imageFile.base64}`,
       prompt: propsValue.editPrompt,
     };
 
@@ -47,25 +44,13 @@ export const imageProEdit = createAction({
       input['mask_url'] = `data:image/png;base64,${propsValue.maskFile.base64}`;
     }
 
-    const outputUrl = await dashScopeClient.submitAndWait({
-      apiKey,
+    return dashScopeClient.submitAndSaveImage({
+      apiKey: auth.props.apiKey,
       model: MODEL,
       submitPath: SUBMIT_PATH,
       input,
+      filename: propsValue.filename,
+      files,
     });
-
-    const imageBuffer = await dashScopeClient.downloadAsBuffer({
-      url: outputUrl,
-    });
-
-    const savedUrl = await files.write({
-      fileName: `${propsValue.filename}.png`,
-      data: imageBuffer,
-    });
-
-    return {
-      fileName: `${propsValue.filename}.png`,
-      url: savedUrl,
-    };
   },
 });

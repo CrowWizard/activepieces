@@ -83,5 +83,5 @@ function deserializeStepOutput(step: FlowRunStep): StepOutput {
         output: step.output,
         duration: step.duration ?? undefined,
         errorMessage: step.errorMessage ?? undefined,
-    } as StepOutput
+    } as unknown as StepOutput
 }

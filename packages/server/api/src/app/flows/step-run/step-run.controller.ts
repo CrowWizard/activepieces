@@ -1,11 +1,13 @@
 import {
     ActivepiecesError,
+    apId,
     ApId,
     CompleteFlowRunRequest,
     ErrorCode,
     ExecuteStepRunRequest,
     ExecuteStepRunResponse,
     ExecutionType,
+    FlowRunStatus,
     FlowRunStepType,
     GetStepRunResponse,
     isFlowRunStateTerminal,
@@ -13,6 +15,7 @@ import {
     LATEST_JOB_DATA_SCHEMA_VERSION,
     Permission,
     PrincipalType,
+    RunEnvironment,
     SchedulingMode,
     SERVICE_KEY_SECURITY_OPENAPI,
     StepOutputStatus,
@@ -22,10 +25,10 @@ import {
 import { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { StatusCodes } from 'http-status-codes'
 import { z } from 'zod'
-import { apId } from '../../../helper/id-generator'
 import { ProjectResourceType } from '../../core/security/authorization/common'
 import { securityAccess } from '../../core/security/authorization/fastify-security'
 import { stepLevelSchedulingFlag } from '../../ee/platform/platform-plan/step-level-scheduling-flag'
+import { FlowRunStepEntity } from '../flow-run/flow-run-step-entity'
 import { projectService } from '../../project/project-service'
 import { jobQueue, JobType } from '../../workers/job-queue/job-queue'
 import { flowRunRepo } from '../flow-run/flow-run-service'
@@ -40,7 +43,7 @@ export const stepRunController: FastifyPluginAsyncZod = async (fastify) => {
         const platformId = await projectService(request.log).getPlatformId(projectId)
         if (!await stepLevelSchedulingFlag.isEnabled(platformId, request.log)) {
             throw new ActivepiecesError({
-                code: ErrorCode.PERMISSION_DENIED,
+                code: ErrorCode.VALIDATION,
                 params: { message: 'External scheduling is not enabled for this platform' },
             })
         }
@@ -76,6 +79,7 @@ export const stepRunController: FastifyPluginAsyncZod = async (fastify) => {
         })
 
         const logsFileId = flowRun.logsFileId ?? apId()
+        const environment = flowRun.environment ?? RunEnvironment.PRODUCTION
 
         await jobQueue(request.log).add({
             id: `${flowRunId}-${stepName}-${stepRecord.id}`,
@@ -91,10 +95,10 @@ export const stepRunController: FastifyPluginAsyncZod = async (fastify) => {
                 resumeReason,
                 platformId: flowRun.projectId,
                 projectId,
-                environment: flowRun.environment ?? 'PRODUCTION',
+                environment,
                 logsFileId,
                 workerHandlerId: null,
-                httpRequestId: null,
+                httpRequestId: undefined,
                 streamStepProgress: StreamStepProgress.NONE,
                 skipOrchestration: true,
                 stepTimeoutSeconds: undefined,
@@ -133,14 +137,14 @@ export const stepRunController: FastifyPluginAsyncZod = async (fastify) => {
             stepName: stepRecord.stepName,
             stepType: stepRecord.stepType,
             status: stepRecord.status,
-            input: stepRecord.input,
-            output: stepRecord.output,
-            duration: stepRecord.duration,
-            errorMessage: stepRecord.errorMessage,
-            queuedAt: stepRecord.queuedAt,
-            startedAt: stepRecord.startedAt,
-            finishedAt: stepRecord.finishedAt,
-            retryCount: stepRecord.retryCount,
+            input: stepRecord.input ?? null,
+            output: stepRecord.output ?? null,
+            duration: stepRecord.duration ?? null,
+            errorMessage: stepRecord.errorMessage ?? null,
+            queuedAt: stepRecord.queuedAt ?? null,
+            startedAt: stepRecord.startedAt ?? null,
+            finishedAt: stepRecord.finishedAt ?? null,
+            retryCount: stepRecord.retryCount ?? 0,
         }
         return response
     })
@@ -153,7 +157,7 @@ export const stepRunController: FastifyPluginAsyncZod = async (fastify) => {
         const platformId = await projectService(request.log).getPlatformId(projectId)
         if (!await stepLevelSchedulingFlag.isEnabled(platformId, request.log)) {
             throw new ActivepiecesError({
-                code: ErrorCode.PERMISSION_DENIED,
+                code: ErrorCode.VALIDATION,
                 params: { message: 'External scheduling is not enabled for this platform' },
             })
         }
@@ -189,10 +193,14 @@ export const stepRunController: FastifyPluginAsyncZod = async (fastify) => {
         }
 
         const updatedRun = await flowRunRepo().save({
-            ...flowRun,
-            status,
-            failedStep: failedStep ?? null,
+            id: flowRun.id,
+            projectId: flowRun.projectId,
+            flowId: flowRun.flowId,
+            flowVersionId: flowRun.flowVersionId,
+            status: status as FlowRunStatus,
+            failedStep: failedStep ?? undefined,
             finishTime: new Date().toISOString(),
+            schedulingMode: flowRun.schedulingMode,
         })
 
         return updatedRun
@@ -227,7 +235,7 @@ const GetStepRunRequestConfig = {
             Permission.READ_RUN,
             {
                 type: ProjectResourceType.TABLE,
-                tableName: 'flow_run_step',
+                tableName: FlowRunStepEntity,
             },
         ),
     },

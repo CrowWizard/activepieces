@@ -161,6 +161,41 @@ const downloadImageAsBuffer = async ({
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+type SubmitAndSaveParams = SubmitTaskParams & {
+  filename: string;
+  files: { write: (params: { fileName: string; data: Buffer }) => Promise<string> };
+};
+
+const submitAndSaveImage = async ({
+  apiKey,
+  model,
+  submitPath,
+  input,
+  parameters,
+  filename,
+  files,
+}: SubmitAndSaveParams): Promise<{ fileName: string; url: string }> => {
+  const outputUrl = await dashScopeClient.submitAndWait({
+    apiKey,
+    model,
+    submitPath,
+    input,
+    parameters,
+  });
+
+  const imageBuffer = await dashScopeClient.downloadAsBuffer({
+    url: outputUrl,
+  });
+
+  const fileName = `${filename}.png`;
+  const savedUrl = await files.write({
+    fileName,
+    data: imageBuffer,
+  });
+
+  return { fileName, url: savedUrl };
+};
+
 export const dashScopeClient = {
   submitAndWait: async ({
     apiKey,
@@ -180,4 +215,6 @@ export const dashScopeClient = {
   },
 
   downloadAsBuffer: downloadImageAsBuffer,
+
+  submitAndSaveImage,
 };

@@ -106,7 +106,7 @@ export const stepOrchestrator = (log: FastifyBaseLogger) => ({
             return
         }
 
-        const trigger = flowStructureUtil.getTriggerOrThrow((flowVersion as unknown as FlowVersion).trigger)
+        const trigger = (flowVersion as unknown as FlowVersion).trigger
         const firstAction = trigger.nextAction
 
         if (isNil(firstAction)) {
@@ -146,6 +146,7 @@ export const stepOrchestrator = (log: FastifyBaseLogger) => ({
             stepNameToTest: params.stepNameToTest,
             traceContext: params.traceContext,
             stepTimeoutSeconds: resolveStepTimeoutSeconds(firstAction.name, typedFlowVersion),
+            skipOrchestration: false,
         }
 
         await jobQueue(log).add({
@@ -226,6 +227,7 @@ export const stepOrchestrator = (log: FastifyBaseLogger) => ({
             stepNameToTest: params.stepNameToTest,
             traceContext: params.traceContext,
             stepTimeoutSeconds: resolveStepTimeoutSeconds(stepName, typedFlowVersion),
+            skipOrchestration: false,
         }
 
         await jobQueue(log).add({
@@ -325,6 +327,7 @@ async function onStepCompletedInner(log: FastifyBaseLogger, params: OnStepComple
                 stepNameToTest: params.stepNameToTest,
                 traceContext: params.traceContext,
                 stepTimeoutSeconds: resolveStepTimeoutSeconds(stepName, typedFlowVersion),
+                skipOrchestration: false,
             }
 
             await jobQueue(log).add({
@@ -428,6 +431,7 @@ async function onStepCompletedInner(log: FastifyBaseLogger, params: OnStepComple
             stepNameToTest: params.stepNameToTest,
             traceContext: params.traceContext,
             stepTimeoutSeconds: resolveStepTimeoutSeconds(nextStepName, typedFlowVersion),
+            skipOrchestration: false,
         }
 
         await jobQueue(log).add({

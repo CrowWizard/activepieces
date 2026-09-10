@@ -1,6 +1,6 @@
-import { FlowRunStepType, StepOutputStatus } from '@activepieces/shared'
+import { FlowRun, FlowRunStepType, Project, StepOutputStatus } from '@activepieces/shared'
 import { EntitySchema } from 'typeorm'
-import { ApIdSchema, BaseColumnSchemaPart } from '../../../database/database-common'
+import { ApIdSchema, BaseColumnSchemaPart } from '../../database/database-common'
 
 type FlowRunStepSchema = {
     id: string
@@ -21,6 +21,8 @@ type FlowRunStepSchema = {
     startedAt: string | null
     finishedAt: string | null
     retryCount: number
+    flowRun: FlowRun
+    project: Project
 }
 
 export const FlowRunStepEntity = new EntitySchema<FlowRunStepSchema>({
